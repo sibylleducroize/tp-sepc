@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 #include "variante.h"
 #include "readcmd.h"
@@ -57,6 +59,63 @@ void terminate(char *line) {
 	printf("exit\n");
 	exit(0);
 }
+
+int piping(char* in, char* out, int bg, char*** seq){
+    int pipefd[2];
+    pid_t pid_1, pid_2;
+    
+    // create pipe
+    if (pipe(pipefd) == -1) {
+        perror("pipe");
+        exit(EXIT_FAILURE);
+    }
+
+    // fork and execute left hand of pipe
+    pid_1 = fork();
+    if (pid_1 == -1) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    } else if (pid_1 == 0) {
+        // child process - set stdout to write end of pipe
+        close(pipefd[0]);
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[1]);
+        // execute left hand command
+        if (execvp(seq[0][0], seq[0]) == -1) {
+            perror("execvp");
+            exit(EXIT_FAILURE);
+        }
+    } else {
+        // parent process - fork and execute right hand command
+        pid_2 = fork();
+        if (pid_2 == -1) {
+            perror("fork");
+            exit(EXIT_FAILURE);
+        } else if (pid_2 == 0) {
+            // child process - set stdin to read end of pipe
+            close(pipefd[1]);
+            dup2(pipefd[0], STDIN_FILENO);
+            close(pipefd[0]);
+            // execute wc
+            if (execvp(seq[1][0], seq[1]) == -1) {
+                perror("execvp");
+                exit(EXIT_FAILURE);
+            }
+        } else {
+            // parent process - close pipe and wait for children
+            close(pipefd[0]);
+            close(pipefd[1]);
+            waitpid(pid_1, NULL, 0);
+            waitpid(pid_2, NULL, 0);
+        }
+    }
+
+    return 0;
+}
+
+
+
+
 
 
 int main() {
@@ -115,9 +174,7 @@ int main() {
 			continue;
 		}
 
-		if (l->in) printf("in: %s\n", l->in);
-		if (l->out) printf("out: %s\n", l->out);
-		if (l->bg) printf("background (&)\n");
+		piping(l->in, l->out, l->bg, l->seq);
 
 		/* Display each command of the pipe */
 		for (i=0; l->seq[i]!=0; i++) {
