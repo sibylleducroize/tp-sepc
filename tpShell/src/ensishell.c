@@ -8,11 +8,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
 
 #include "variante.h"
 #include "readcmd.h"
+#include "execute.h"
 
 #ifndef VARIANTE
 #error "Variante non défini !!"
@@ -60,101 +59,19 @@ void terminate(char *line) {
 	exit(0);
 }
 
-
-
-
-
-int piping(char* in, char* out, int bg, char*** seq){
-    int pipefd[2];
-    pid_t pid_1, pid_2;
-    
-    // create pipe
-    if (pipe(pipefd) == -1) {
-        perror("pipe");
-        exit(EXIT_FAILURE);
-    }
-
-    // fork and execute left hand of pipe
-    pid_1 = fork();
-    if (pid_1 == -1) {
-        perror("fork");
-        exit(EXIT_FAILURE);
-    } else if (pid_1 == 0) {
-        // child process - set stdout to write end of pipe
-        close(pipefd[0]);
-        dup2(pipefd[1], STDOUT_FILENO);
-        close(pipefd[1]);
-        // execute left hand command
-        if (execvp(seq[0][0], seq[0]) == -1) {
-            perror("execvp");
-            exit(EXIT_FAILURE);
-        }
-    } else {
-        // parent process - fork and execute right hand command
-        pid_2 = fork();
-        if (pid_2 == -1) {
-            perror("fork");
-            exit(EXIT_FAILURE);
-        } else if (pid_2 == 0) {
-            // child process - set stdin to read end of pipe
-            close(pipefd[1]);
-            dup2(pipefd[0], STDIN_FILENO);
-            close(pipefd[0]);
-            // execute wc
-            if (execvp(seq[1][0], seq[1]) == -1) {
-                perror("execvp");
-                exit(EXIT_FAILURE);
-            }
-        } else {
-            // parent process - close pipe and wait for children
-            close(pipefd[0]);
-            close(pipefd[1]);
-            waitpid(pid_1, NULL, 0);
-            waitpid(pid_2, NULL, 0);
-        }
-    }
-
-    return 0;
-}
-
-int execute_command(char* in, char* out, int bg, char*** seq){
-    //check for piping
-    if(seq[1]!=0){
-        return piping(in, out, bg, seq);
-    }
-
-    pid_t pid = fork();
-
-    if(pid<0){
-        perror("Fork failed.");
-        exit(EXIT_FAILURE);
-    }else if(pid==0){
-        //we are in the child processe, where the command should be executed
-        if(execvp(seq[0][0], seq[0])==-1){
-            perror("Execution error");
-            exit(EXIT_FAILURE);
-        }
-    }else{
-        //we are in the parent 
-        wait(NULL);
-    }
-    return 0;
-}
-
-
 int main() {
-        printf("Variante %d: %s\n", VARIANTE, VARIANTE_STRING);
+
+    printf("Variante %d: %s\n", VARIANTE, VARIANTE_STRING);
 
 #if USE_GUILE == 1
-        scm_init_guile();
-        /* register "executer" function in scheme */
-        scm_c_define_gsubr("executer", 1, 0, 0, executer_wrapper);
+    scm_init_guile();
+    /* register "executer" function in scheme */
+    scm_c_define_gsubr("executer", 1, 0, 0, executer_wrapper);
 #endif
 
 	while (1) {
 		struct cmdline *l;
 		char *line=0;
-		int i, j;
 		char *prompt = "ensishell>";
 
 		/* Readline use some internal memory structure that
@@ -177,38 +94,25 @@ int main() {
 			sprintf(catchligne, "(catch #t (lambda () %s) (lambda (key . parameters) (display \"mauvaise expression/bug en scheme\n\")))", line);
 			scm_eval_string(scm_from_locale_string(catchligne));
 			free(line);
-                        continue;
-                }
+            continue;
+        }
 #endif
-
 		/* parsecmd free line and set it up to 0 */
-		l = parsecmd( & line);
+		l = parsecmd(& line);
 
 		/* If input stream closed, normal termination */
 		if (!l) {
-		  
 			terminate(0);
 		}
-		
 
-		
 		if (l->err) {
 			/* Syntax error, read another command */
 			printf("error: %s\n", l->err);
 			continue;
 		}
 
-		execute_command(l->in, l->out, l->bg, l->seq);
 
-		/* Display each command of the pipe */
-		for (i=0; l->seq[i]!=0; i++) {
-			char **cmd = l->seq[i];
-			printf("seq[%d]: ", i);
-                        for (j=0; cmd[j]!=0; j++) {
-                                printf("'%s' ", cmd[j]);
-                        }
-			printf("\n");
-		}
+		execute_command(l->in, l->out, l->bg, l->seq);
 	}
 
 }
