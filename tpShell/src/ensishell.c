@@ -60,6 +60,10 @@ void terminate(char *line) {
 	exit(0);
 }
 
+
+
+
+
 int piping(char* in, char* out, int bg, char*** seq){
     int pipefd[2];
     pid_t pid_1, pid_2;
@@ -113,9 +117,29 @@ int piping(char* in, char* out, int bg, char*** seq){
     return 0;
 }
 
+int execute_command(char* in, char* out, int bg, char*** seq){
+    //check for piping
+    if(seq[1]!=0){
+        return piping(in, out, bg, seq);
+    }
 
+    pid_t pid = fork();
 
-
+    if(pid<0){
+        perror("Fork failed.");
+        exit(EXIT_FAILURE);
+    }else if(pid==0){
+        //we are in the child processe, where the command should be executed
+        if(execvp(seq[0][0], seq[0])==-1){
+            perror("Execution error");
+            exit(EXIT_FAILURE);
+        }
+    }else{
+        //we are in the parent 
+        wait(NULL);
+    }
+    return 0;
+}
 
 
 int main() {
@@ -174,7 +198,7 @@ int main() {
 			continue;
 		}
 
-		piping(l->in, l->out, l->bg, l->seq);
+		execute_command(l->in, l->out, l->bg, l->seq);
 
 		/* Display each command of the pipe */
 		for (i=0; l->seq[i]!=0; i++) {
