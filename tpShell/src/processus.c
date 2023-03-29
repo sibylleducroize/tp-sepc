@@ -1,4 +1,4 @@
-import "processus.h"
+#include "processus.h"
 
 
 void ajout_processus(pid_t pid, char* name, struct Processus ** liste) {

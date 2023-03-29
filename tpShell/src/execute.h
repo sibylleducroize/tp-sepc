@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int execute_command(char* in, char* out, int bg, char*** seq);
+#include "processus.h"
+
+int execute_command(char* in, char* out, int bg, char*** seq, struct Processus * liste_processus);
 
 #endif

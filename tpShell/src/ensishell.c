@@ -119,46 +119,8 @@ int main() {
 		}
 
 
-		execute_command(l->in, l->out, l->bg, l->seq);
-		/*exécution des commandes*/
-		for (uint32_t i=0; l->seq[i]!=0; i++) {
+		execute_command(l->in, l->out, l->bg, l->seq, liste_processus);
 
-			if (!strncmp(l->seq[0][0], "jobs", 4)) {
-				/*commande interne jobs pour afficher les processus en arrière plan*/
-				jobs(&liste_processus);
-				continue;
-			}
-
-			/*fork pour dupliquer le processus*/
-			pid_t pid = fork();
-
-			if (pid == -1) {
-				printf("erreur de fork");
-			}
-
-			/*processus enfant*/
-			else if (pid == 0) {
-				/*execvp pour avoir le bon processus*/
-				execvp(l->seq[i][0], l->seq[i]);
-				exit(0);
-			}
-
-			/*processus parent*/
-			else {
-				if(!l->bg) {
-					/*processus pas en tâche de fond => le père attend la fin du fils*/
-					pid_t wpid = waitpid(pid, &status, 0);
-					if(wpid == -1) {
-						printf("erreur dans le wait");
-						exit(1);
-					}
-				}
-				else {
-					/*processus fils en tâche de fond : onl'ajoute à la liste*/
-					ajout_processus(pid, l->seq[i][0], &liste_processus);
-				}
-			}
-		}
 	}
 
 }

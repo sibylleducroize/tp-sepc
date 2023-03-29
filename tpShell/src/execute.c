@@ -1,6 +1,13 @@
 #include "execute.h"
 
-int execute_command(char* in, char* out, int bg, char*** seq){
+int execute_command(char* in, char* out, int bg, char*** seq, struct Processus * liste_processus){
+    
+    if (!strncmp(seq[0][0], "jobs", 4)) {
+		/*commande interne jobs pour afficher les processus en arrière plan*/
+		jobs(&liste_processus);
+		return 0;
+	}
+    
     char piping = 0;
     int pipefd[2] = {0,0};
     /*Initializing parameters of execution*/
@@ -13,7 +20,8 @@ int execute_command(char* in, char* out, int bg, char*** seq){
     if(pid_1<0){
         perror("Fork failed.");
         exit(EXIT_FAILURE);
-    }else if(pid_1==0){
+    }
+    else if(pid_1==0){
         //we are in the child process, 
         //where the left hand command should be executed
         if(piping){
@@ -39,7 +47,8 @@ int execute_command(char* in, char* out, int bg, char*** seq){
             perror("Execution error");
             exit(EXIT_FAILURE);
         }
-    }else{
+    }
+    else{
         //we are in the parent
         if(piping){
             pid_t pid_2 = fork();
@@ -71,8 +80,19 @@ int execute_command(char* in, char* out, int bg, char*** seq){
                 waitpid(pid_2, NULL, 0);
             }
         }else{
-            //no pipe
-            wait(NULL);
+            if(!bg) {
+				/*processus pas en tâche de fond => le père attend la fin du fils*/
+				int status;
+                pid_t wpid = waitpid(pid_1, &status, 0);
+				if(wpid == -1) {
+					printf("erreur dans le wait");
+					exit(1);
+                }
+            }
+			else {
+				/*processus fils en tâche de fond : onl'ajoute à la liste*/
+				ajout_processus(pid_1, seq[0][0], &liste_processus);
+			}
         }
     }
     return 0;
