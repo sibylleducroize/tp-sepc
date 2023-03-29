@@ -119,7 +119,7 @@ int main() {
 		}
 
 
-		execute_command(l->in, l->out, l->bg, l->seq, liste_processus);
+		execute_command(l->in, l->out, l->bg, l->seq, &liste_processus);
 
 	}
 

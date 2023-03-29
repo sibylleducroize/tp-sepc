@@ -1,10 +1,10 @@
 #include "execute.h"
 
-int execute_command(char* in, char* out, int bg, char*** seq, struct Processus * liste_processus){
+int execute_command(char* in, char* out, int bg, char*** seq, struct Processus ** liste_processus){
     
     if (!strncmp(seq[0][0], "jobs", 4)) {
 		/*commande interne jobs pour afficher les processus en arrière plan*/
-		jobs(&liste_processus);
+		jobs(liste_processus);
 		return 0;
 	}
     
@@ -91,7 +91,7 @@ int execute_command(char* in, char* out, int bg, char*** seq, struct Processus *
             }
 			else {
 				/*processus fils en tâche de fond : onl'ajoute à la liste*/
-				ajout_processus(pid_1, seq[0][0], &liste_processus);
+				ajout_processus(pid_1, seq[0][0], liste_processus);
 			}
         }
     }
